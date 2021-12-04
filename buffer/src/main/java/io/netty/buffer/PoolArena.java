@@ -122,7 +122,9 @@ abstract class PoolArena<T> extends SizeClasses implements PoolArenaMetric {
     abstract boolean isDirect();
 
     PooledByteBuf<T> allocate(PoolThreadCache cache, int reqCapacity, int maxCapacity) {
+        //这里的newByteBuf其实是重用
         PooledByteBuf<T> buf = newByteBuf(maxCapacity);
+        //重用内存
         allocate(cache, buf, reqCapacity);
         return buf;
     }
@@ -659,9 +661,11 @@ abstract class PoolArena<T> extends SizeClasses implements PoolArenaMetric {
 
         @Override
         protected PooledByteBuf<ByteBuffer> newByteBuf(int maxCapacity) {
+            //判断是否开启和使用JDK内置的Unsafe
             if (HAS_UNSAFE) {
                 return PooledUnsafeDirectByteBuf.newInstance(maxCapacity);
             } else {
+                //进这里
                 return PooledDirectByteBuf.newInstance(maxCapacity);
             }
         }

@@ -126,7 +126,7 @@ public class DefaultFileRegion extends AbstractReferenceCounted implements FileR
         }
         // Call open to make sure fc is initialized. This is a no-oop if we called it before.
         open();
-
+       //这里会调用file的transferTo方法，讲文件Channel的数据写入指定的Channel，操作系统可以直接从文件系统缓存传输字节到目标通道，而不实际拷贝他们
         long written = file.transferTo(this.position + position, count, target);
         if (written > 0) {
             transferred += written;
