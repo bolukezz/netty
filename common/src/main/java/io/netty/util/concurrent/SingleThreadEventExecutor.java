@@ -812,6 +812,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
     @Override
     public void execute(Runnable task) {
         ObjectUtil.checkNotNull(task, "task");
+        //这里方法主要就是创建线程，将线程添加到EventLoop的无锁化串行任务队列中,跟进去execute
         execute(task, !(task instanceof LazyRunnable) && wakesUpForTask(task));
     }
 
@@ -822,8 +823,10 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     private void execute(Runnable task, boolean immediate) {
         boolean inEventLoop = inEventLoop();
+        //将任务添加到EventLoop的无锁化串行队列中
         addTask(task);
         if (!inEventLoop) {
+            //重点关注
             startThread();
             if (isShutdown()) {
                 boolean reject = false;
@@ -938,9 +941,11 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     private void startThread() {
         if (state == ST_NOT_STARTED) {
+            //这里是为了防止并发，重复启动
             if (STATE_UPDATER.compareAndSet(this, ST_NOT_STARTED, ST_STARTED)) {
                 boolean success = false;
                 try {
+                    //进入这个方法
                     doStartThread();
                     success = true;
                 } finally {
@@ -975,6 +980,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         executor.execute(new Runnable() {
             @Override
             public void run() {
+                //将当前线程赋值给thread属性
                 thread = Thread.currentThread();
                 if (interrupted) {
                     thread.interrupt();
@@ -983,6 +989,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
                 boolean success = false;
                 updateLastExecutionTime();
                 try {
+                    //这个this就是NioEventLoop对象
                     SingleThreadEventExecutor.this.run();
                     success = true;
                 } catch (Throwable t) {

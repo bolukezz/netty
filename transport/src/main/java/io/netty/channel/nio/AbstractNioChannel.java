@@ -78,9 +78,12 @@ public abstract class AbstractNioChannel extends AbstractChannel {
      */
     protected AbstractNioChannel(Channel parent, SelectableChannel ch, int readInterestOp) {
         super(parent);
+        //这里ch被赋值为Java Nio SocketChannel对象
         this.ch = ch;
+        //被赋值为SelectionKey.OP_READ
         this.readInterestOp = readInterestOp;
         try {
+            //这里channel被设置非阻塞的
             ch.configureBlocking(false);
         } catch (IOException e) {
             try {
@@ -245,7 +248,9 @@ public abstract class AbstractNioChannel extends AbstractChannel {
                 }
 
                 boolean wasActive = isActive();
+                //调用doConnect方法，会调用到NioSocketChannel中的实现
                 if (doConnect(remoteAddress, localAddress)) {
+                    //在这里会把通道激活，也就是socket连接成功的消息发出去
                     fulfillConnectPromise(promise, wasActive);
                 } else {
                     connectPromise = promise;
@@ -302,6 +307,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
             // Regardless if the connection attempt was cancelled, channelActive() event should be triggered,
             // because what happened is what happened.
             if (!wasActive && active) {
+                //发送Inbound事件
                 pipeline().fireChannelActive();
             }
 
@@ -377,6 +383,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         boolean selected = false;
         for (;;) {
             try {
+                //这里将SocketChannel注册到eventLoop关联的Selector上
                 selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);
                 return;
             } catch (CancelledKeyException e) {

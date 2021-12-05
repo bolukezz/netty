@@ -76,9 +76,12 @@ final class ChannelHandlerMask {
     static int mask(Class<? extends ChannelHandler> clazz) {
         // Try to obtain the mask from the cache first. If this fails calculate it and put it in the cache for fast
         // lookup in the future.
+        //这里尝试从缓存中获取掩码
         Map<Class<? extends ChannelHandler>, Integer> cache = MASKS.get();
         Integer mask = cache.get(clazz);
+        //如果缓存中没有，则生成一个放入进去
         if (mask == null) {
+            //根据class生成mask
             mask = mask0(clazz);
             cache.put(clazz, mask);
         }

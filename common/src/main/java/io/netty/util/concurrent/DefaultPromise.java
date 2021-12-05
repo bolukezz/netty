@@ -585,11 +585,11 @@ public class DefaultPromise<V> extends AbstractFuture<V> implements Promise<V> {
 
     private void addListener0(GenericFutureListener<? extends Future<? super V>> listener) {
         if (listeners == null) {
-            listeners = listener;
-        } else if (listeners instanceof DefaultFutureListeners) {
-            ((DefaultFutureListeners) listeners).add(listener);
-        } else {
-            listeners = new DefaultFutureListeners((GenericFutureListener<?>) listeners, listener);
+                listeners = listener;
+            } else if (listeners instanceof DefaultFutureListeners) {
+                ((DefaultFutureListeners) listeners).add(listener);
+            } else {
+                listeners = new DefaultFutureListeners((GenericFutureListener<?>) listeners, listener);
         }
     }
 

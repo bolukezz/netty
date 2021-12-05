@@ -120,6 +120,7 @@ public class Bootstrap extends AbstractBootstrap<Bootstrap, Channel> {
      * Connect a {@link Channel} to the remote peer.
      */
     public ChannelFuture connect(String inetHost, int inetPort) {
+        //创建地址，并重载
         return connect(InetSocketAddress.createUnresolved(inetHost, inetPort));
     }
 
@@ -134,8 +135,10 @@ public class Bootstrap extends AbstractBootstrap<Bootstrap, Channel> {
      * Connect a {@link Channel} to the remote peer.
      */
     public ChannelFuture connect(SocketAddress remoteAddress) {
+        //校验参数
         ObjectUtil.checkNotNull(remoteAddress, "remoteAddress");
         validate();
+        //调用doResolveAndConnect
         return doResolveAndConnect(remoteAddress, config.localAddress());
     }
 
@@ -177,6 +180,7 @@ public class Bootstrap extends AbstractBootstrap<Bootstrap, Channel> {
                         // Registration was successful, so set the correct executor to use.
                         // See https://github.com/netty/netty/issues/2586
                         promise.registered();
+                        //调用doResolveAndConnect0
                         doResolveAndConnect0(channel, remoteAddress, localAddress, promise);
                     }
                 }
@@ -214,6 +218,7 @@ public class Bootstrap extends AbstractBootstrap<Bootstrap, Channel> {
                     promise.setFailure(resolveFailureCause);
                 } else {
                     // Succeeded to resolve immediately; cached? (or did a blocking lookup)
+                    //调用doConnect方法
                     doConnect(resolveFuture.getNow(), localAddress, promise);
                 }
                 return promise;
@@ -247,6 +252,7 @@ public class Bootstrap extends AbstractBootstrap<Bootstrap, Channel> {
             @Override
             public void run() {
                 if (localAddress == null) {
+                    //这里会调用channel的connect方法
                     channel.connect(remoteAddress, connectPromise);
                 } else {
                     channel.connect(remoteAddress, localAddress, connectPromise);

@@ -32,6 +32,8 @@ public final class DefaultEventExecutorChooserFactory implements EventExecutorCh
 
     @Override
     public EventExecutorChooser newChooser(EventExecutor[] executors) {
+        //这里判断如果nThreads是2的平方，则使用PowerOfTwoEventExecutorChooser，否则使用GenericEventExecutorChooser
+        //这两个Chooser都重写next()方法，next方法的主要功能就是将数组索引循环位移
         if (isPowerOfTwo(executors.length)) {
             return new PowerOfTwoEventExecutorChooser(executors);
         } else {

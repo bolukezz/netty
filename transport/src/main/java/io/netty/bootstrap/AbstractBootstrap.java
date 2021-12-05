@@ -106,6 +106,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * {@link Channel} implementation has no no-args constructor.
      */
     public B channel(Class<? extends C> channelClass) {
+        //这里是通过反射加工厂来创建channel,这里其实初始化了一个ReflectiveChannelFactory
         return channelFactory(new ReflectiveChannelFactory<C>(
                 ObjectUtil.checkNotNull(channelClass, "channelClass")
         ));
@@ -243,6 +244,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * Create a new {@link Channel} and bind it.
      */
     public ChannelFuture bind(int inetPort) {
+        //构建本地的addr，端口和地址，调用重载
         return bind(new InetSocketAddress(inetPort));
     }
 
@@ -265,10 +267,12 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      */
     public ChannelFuture bind(SocketAddress localAddress) {
         validate();
+        //调用doBind
         return doBind(ObjectUtil.checkNotNull(localAddress, "localAddress"));
     }
 
     private ChannelFuture doBind(final SocketAddress localAddress) {
+        //初始化并注册channel
         final ChannelFuture regFuture = initAndRegister();
         final Channel channel = regFuture.channel();
         if (regFuture.cause() != null) {
@@ -295,7 +299,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
                         // Registration was successful, so set the correct executor to use.
                         // See https://github.com/netty/netty/issues/2586
                         promise.registered();
-
+                       //这里调用doBind0
                         doBind0(regFuture, channel, localAddress, promise);
                     }
                 }
@@ -304,10 +308,17 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         }
     }
 
+    /**
+     * 初始化并且将初始化好的Channel注册到NioEventLoop的Selector上。
+     * 调用链路：bootstrap.connect->doResolveAndConnect->initAndRegister
+     * @return
+     */
     final ChannelFuture initAndRegister() {
         Channel channel = null;
         try {
+            //这里通过工厂+反射创建好channel
             channel = channelFactory.newChannel();
+            //调用init方法初始化channel
             init(channel);
         } catch (Throwable t) {
             if (channel != null) {
@@ -319,7 +330,25 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             // as the Channel is not registered yet we need to force the usage of the GlobalEventExecutor
             return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t);
         }
-
+        /**
+         * channel注册过程
+         * 1、在AbstractBootstrap的initAndRegister方法中通过group().register(channel)调用MultithreadEventLoopGroup.register(）
+         * 2、在MultithreadEventLoopGroup.register(）方法中，调用next（）方法获取一个可用的SingleTheadEventLoop，然后调用它的register方法
+         * 3、在SingleTheadEventLoop的register()方法中，调用channel.unsafe().register()方法获取channel的unsafe()底层操作对象，然后调用Unsafe的register方法
+         * 4、在AbstractUnsafe的register()方法中，调用register0()方法注册channel对象
+         * 5、在register0()方法中，调用AbstractNioChannel的doRegister()方法
+         * 6、AbstractNioChannel的doRegister()方法通过javaChannel().register()将channel对应的Java NIO SocketChannel注册到一个eventLoop的Selector中，
+         * 并且将当前Channel作为Attachment与SocketCHannel关联。
+         *
+         * Channel的注册过程就是将Channel与对应的EvnetLoop进行关联，每个Channel都会关联一个特定的EventLoop，并且这个Channel中的所有IO操作都是在这个EventLoop中
+         * 执行的，当关联好channel和EventLoop后，会继续调用底层Java的SocketChannel对象的register()方法，将底层java的SocketChannel注册到指定的Selector中。
+         */
+        //像selector注册Channel
+        //这里会调用到MultithreadEventLoopGroup.register()方法
+        /**
+         * 如果是服务端初始化，那么group就是bossGroup，channel就是NioServerSocketChannel，bossGroup就和channel关联起来了，那么workerGroup是怎么和channel关联起来的
+         * 看上面的init方法，被ServerBootstrap给重写了
+         */
         ChannelFuture regFuture = config().group().register(channel);
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {
@@ -348,7 +377,8 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             final SocketAddress localAddress, final ChannelPromise promise) {
 
         // This method is invoked before channelRegistered() is triggered.  Give user handlers a chance to set up
-        // the pipeline in its channelRegistered() implementation.
+        // the pipeline in its channelRegistered() implementation
+        //这里调用EventLoop的execute()方法,会调用到SingleThreadEventExecutor的execute方法
         channel.eventLoop().execute(new Runnable() {
             @Override
             public void run() {

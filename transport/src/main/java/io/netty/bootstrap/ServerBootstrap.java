@@ -80,6 +80,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
      * {@link Channel}'s.
      */
     public ServerBootstrap group(EventLoopGroup parentGroup, EventLoopGroup childGroup) {
+        //这里可以发现叫bossGroup是parent，workerGroup是child，初始化这两个属性
         super.group(parentGroup);
         if (this.childGroup != null) {
             throw new IllegalStateException("childGroup set already");
@@ -139,18 +140,23 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         final Entry<ChannelOption<?>, Object>[] currentChildOptions = newOptionsArray(childOptions);
         final Entry<AttributeKey<?>, Object>[] currentChildAttrs = newAttributesArray(childAttrs);
 
+        //在这里我们看到在init方法中，他给pipeline中添加了一个ChannelInitializer，在这个ChannelInitializer中添加了一个
+        //非常关键的ServerBootstrapAcceptor的handler
         p.addLast(new ChannelInitializer<Channel>() {
             @Override
             public void initChannel(final Channel ch) {
                 final ChannelPipeline pipeline = ch.pipeline();
+                //在这里首先通过handler()方法获取一个handler，如果获取的handler不为空，则添加到Pipeline中
                 ChannelHandler handler = config.handler();
+                //这个相当于是我们在启动的时候给boosGroup设置的handler，也就是通过.handler()设置的。
                 if (handler != null) {
                     pipeline.addLast(handler);
                 }
-
+               //在这里又添加了一个ServerBootstrapAcceptor,这里其实是设置我们的childHandler
                 ch.eventLoop().execute(new Runnable() {
                     @Override
                     public void run() {
+                        //看下ServerBootstrapAcceptor，它重写了channelRead方法。
                         pipeline.addLast(new ServerBootstrapAcceptor(
                                 ch, currentChildGroup, currentChildHandler, currentChildOptions, currentChildAttrs));
                     }
@@ -212,6 +218,10 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             setAttributes(child, childAttrs);
 
             try {
+                //在这里会调用childGroup，也就是我们的workerGroup对象的register方法,这个方法就是将workerGroup中的
+                //某个EventLoop和NioSocketChannel进行关联。
+                //那么我们看下这个channelRead方法是在什么时候被调用的,其实当一个Client连接到Server时，java底层NIO的ServerSocketChannel
+                //就会有一个SelectionKey。OP_ACCEPT的事件就绪，接着就会调用NioServerSocketChannel的doReadMessages()方法
                 childGroup.register(child).addListener(new ChannelFutureListener() {
                     @Override
                     public void operationComplete(ChannelFuture future) throws Exception {

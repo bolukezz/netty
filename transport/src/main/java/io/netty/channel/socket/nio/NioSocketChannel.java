@@ -78,6 +78,7 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
      * Create a new instance
      */
     public NioSocketChannel() {
+        //重载
         this(DEFAULT_SELECTOR_PROVIDER);
     }
 
@@ -85,6 +86,7 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
      * Create a new instance using the given {@link SelectorProvider}.
      */
     public NioSocketChannel(SelectorProvider provider) {
+        //在这里会调用newSocket来打开一个新的NIO SocketChannel对象
         this(newSocket(provider));
     }
 
@@ -102,6 +104,7 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
      * @param socket    the {@link SocketChannel} which will be used
      */
     public NioSocketChannel(Channel parent, SocketChannel socket) {
+        //调用父类的构造方法
         super(parent, socket);
         config = new NioSocketChannelConfig(this, socket.socket());
     }
@@ -312,6 +315,7 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
 
         boolean success = false;
         try {
+            //这里首先获取java nio的SocketChannel，然后调用connect方法
             boolean connected = SocketUtils.connect(javaChannel(), remoteAddress);
             if (!connected) {
                 selectionKey().interestOps(SelectionKey.OP_CONNECT);
@@ -440,6 +444,7 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
 
     @Override
     protected AbstractNioUnsafe newUnsafe() {
+        //返回的是一个NioSocketChannelUnsafe
         return new NioSocketChannelUnsafe();
     }
 

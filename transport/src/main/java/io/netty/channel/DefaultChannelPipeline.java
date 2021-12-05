@@ -90,10 +90,13 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     private boolean registered;
 
     protected DefaultChannelPipeline(Channel channel) {
+        //这个channel就是我们new出来的NioSocketChannel，会保存在pipeline的channel属性中
         this.channel = ObjectUtil.checkNotNull(channel, "channel");
         succeededFuture = new SucceededChannelFuture(channel, null);
         voidPromise =  new VoidChannelPromise(channel, true);
-
+       //这里可以发现pipeline中维护了head和tail，这两个属性是双向链表的头和尾
+        //这说明在pipeline中维护了一个以AbstractChannelHandlerContext为节点元素的双向链表
+        //而且我们发现head是ChannelOutboundHandler, ChannelInboundHandler，tail是一个ChannelInboundHandler
         tail = new TailContext(this);
         head = new HeadContext(this);
 
@@ -892,6 +895,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public final ChannelPipeline fireChannelActive() {
+        //这个事件是从head开始的。
         AbstractChannelHandlerContext.invokeChannelActive(head);
         return this;
     }
@@ -916,6 +920,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public final ChannelPipeline fireChannelRead(Object msg) {
+        //在这里会去执行channelRead方法
         AbstractChannelHandlerContext.invokeChannelRead(head, msg);
         return this;
     }
@@ -975,6 +980,8 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public final ChannelFuture connect(SocketAddress remoteAddress, ChannelPromise promise) {
+        //tail是一个TailContext的实例，tailContext是AbstractChannelHandlerContext的子类，且没有实现connect方法
+        //所以这里调用的是父类的connect()方法
         return tail.connect(remoteAddress, promise);
     }
 
@@ -1245,6 +1252,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     final class TailContext extends AbstractChannelHandlerContext implements ChannelInboundHandler {
 
         TailContext(DefaultChannelPipeline pipeline) {
+            //这里调用父类的构造方法，传入的类是TailContext
             super(pipeline, null, TAIL_NAME, TailContext.class);
             setAddComplete();
         }
@@ -1339,6 +1347,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
                 ChannelHandlerContext ctx,
                 SocketAddress remoteAddress, SocketAddress localAddress,
                 ChannelPromise promise) {
+            //这里调用了Unsafe的connect()方法，这个Unsafe其实就是pipeline.channel().unsafe()，返回的就是channel的unsafe属性。
             unsafe.connect(remoteAddress, localAddress, promise);
         }
 

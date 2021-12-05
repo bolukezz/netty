@@ -75,6 +75,7 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
     public final void channelRegistered(ChannelHandlerContext ctx) throws Exception {
         // Normally this method will never be called as handlerAdded(...) should call initChannel(...) and remove
         // the handler.
+        //添加自定义的handler，
         if (initChannel(ctx)) {
             // we called initChannel(...) so we need to call now pipeline.fireChannelRegistered() to ensure we not
             // miss an event.
@@ -124,8 +125,14 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
 
     @SuppressWarnings("unchecked")
     private boolean initChannel(ChannelHandlerContext ctx) throws Exception {
+        //这里发现他是先把自定义的Handler添加到ChannelPipeline中，然后调用pipeline.remove把自己从pipeline中删除
+        /**
+         * 一开始pipeline中只有三个handler，head，tail和我们添加的ChannelInitializer，接着调用initChannel添加自定义的handler
+         * ，最后将ChannelInitializer删除
+         */
         if (initMap.add(ctx)) { // Guard against re-entrance.
             try {
+                //添加自定义的handler
                 initChannel((C) ctx.channel());
             } catch (Throwable cause) {
                 // Explicitly call exceptionCaught(...) as we removed the handler before calling initChannel(...).

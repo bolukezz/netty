@@ -106,6 +106,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         this.name = ObjectUtil.checkNotNull(name, "name");
         this.pipeline = pipeline;
         this.executor = executor;
+        //这个方法中会根据这个class是inbound还是outbound来计算出来一个掩码
         this.executionMask = mask(handlerClass);
         // Its ordered if its driven by the EventLoop or the given Executor is an instanceof OrderedEventExecutor.
         ordered = executor == null || executor instanceof OrderedEventExecutor;
@@ -147,10 +148,14 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     }
 
     static void invokeChannelRegistered(final AbstractChannelHandlerContext next) {
+        //会从head开始遍历Pipeline的双向连标，然后找到第一个实现inbound的ChannelHandlerContext，ChannelInitializer实现了
+        //ChannelInboundHandler，所以这里应该就返回的是ChannelInitializer实例
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
+            //这里会遍历连标
             next.invokeChannelRegistered();
         } else {
+            //然后调用它的invokeChannelRegistered方法
             executor.execute(new Runnable() {
                 @Override
                 public void run() {
@@ -526,10 +531,13 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             // cancelled
             return promise;
         }
-
+         //重点，这里调用findContextOutbound(MASK_CONNECT)方法，从pipeline内的双向链表的tail开始，不断向前找到outBound，并且是处理CONNECT事件的。
         final AbstractChannelHandlerContext next = findContextOutbound(MASK_CONNECT);
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
+            //这里调用它的invokerConnect()方法。
+            //因为在pipeline的构造器中，只实例化了两个对象head和tail，就是链表的头和尾，Head是HeadContext，它实现了ChannelOutboundHandler接口，
+            //所以这里找到的其实就是head。
             next.invokeConnect(remoteAddress, localAddress, promise);
         } else {
             safeExecute(executor, new Runnable() {
@@ -545,6 +553,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     private void invokeConnect(SocketAddress remoteAddress, SocketAddress localAddress, ChannelPromise promise) {
         if (invokeHandler()) {
             try {
+                //因为找到的是head，所以这里可以强转，headContext重写了connect，所以实际上这个调用的是head的connect方法
                 ((ChannelOutboundHandler) handler()).connect(this, remoteAddress, localAddress, promise);
             } catch (Throwable t) {
                 notifyOutboundHandlerException(t, promise);

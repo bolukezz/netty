@@ -44,6 +44,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
 
     @Override
     protected AbstractNioUnsafe newUnsafe() {
+        //服务端的Unsafe实例
         return new NioMessageUnsafe();
     }
 
@@ -94,6 +95,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
                 int size = readBuf.size();
                 for (int i = 0; i < size; i ++) {
                     readPending = false;
+                    //利用netty的pipeline将读取事件逐级发送到各个Handler中
                     pipeline.fireChannelRead(readBuf.get(i));
                 }
                 readBuf.clear();

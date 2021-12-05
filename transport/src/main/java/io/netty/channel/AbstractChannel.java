@@ -69,9 +69,15 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
      *        the parent of this channel. {@code null} if there's no parent.
      */
     protected AbstractChannel(Channel parent) {
+        //parent默认为空
         this.parent = parent;
+        //每个channel都会分配一个唯一的id
         id = newId();
+        //实例化一个Unsafe对象，它的类型是io.netty.channel.nio.AbstractNioByteChannel.NioByteUnsafe
+        //这里为啥要实例化一个Unsafe对象，因为Unsafe是对java底层socket的封装，所以nett通过这个来和java进行沟通
+        //服务端的Unsafe是AbstractNioMessageChannel实例
         unsafe = newUnsafe();
+        //创建一个pipeline对象，类型是DefaultChannelPipeline
         pipeline = newChannelPipeline();
     }
 
@@ -262,6 +268,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
     @Override
     public ChannelFuture connect(SocketAddress remoteAddress, ChannelPromise promise) {
+        //这里会调用DefaultChannelPipeline的connect方法
         return pipeline.connect(remoteAddress, promise);
     }
 
@@ -463,6 +470,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
         @Override
         public final void register(EventLoop eventLoop, final ChannelPromise promise) {
+            //做一些校验
             ObjectUtil.checkNotNull(eventLoop, "eventLoop");
             if (isRegistered()) {
                 promise.setFailure(new IllegalStateException("registered to an event loop already"));
@@ -476,6 +484,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
             AbstractChannel.this.eventLoop = eventLoop;
 
+            //这里发现都会调用register0方法
             if (eventLoop.inEventLoop()) {
                 register0(promise);
             } else {
@@ -505,6 +514,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     return;
                 }
                 boolean firstRegistration = neverRegistered;
+                //这里会调用AbstractNioChannel的doRegister()方法
                 doRegister();
                 neverRegistered = false;
                 registered = true;
@@ -514,6 +524,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 pipeline.invokeHandlerAddedIfNeeded();
 
                 safeSetSuccess(promise);
+                //插入自定义handler到pipeline中
                 pipeline.fireChannelRegistered();
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.

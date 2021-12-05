@@ -32,6 +32,7 @@ public class MyNettyClient {
             //设置相关参数
             bootstrap.group(eventExecutors)//设置线程组
                     .channel(NioSocketChannel.class)//设置客户端通道的实现类（反射来实现）
+                    //todo 看下handler的调用时机
                     .handler(new ChannelInitializer<SocketChannel>() {
                         @Override
                         protected void initChannel(SocketChannel ch) throws Exception {
@@ -42,6 +43,7 @@ public class MyNettyClient {
             System.out.println("客户端 ok....");
             //启动客户端，去连接服务器端
             //关于ChannelFuture要分析，涉及到netty的异步模型
+            //bootstrap.connect发起连接
             ChannelFuture sync = bootstrap.connect("127.0.0.1", 6668).sync();
             Channel channel = sync.channel();
             while (true) {
