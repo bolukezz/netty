@@ -1378,6 +1378,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         public void flush(ChannelHandlerContext ctx) {
+            //调用hunsafe的flush
             unsafe.flush();
         }
 

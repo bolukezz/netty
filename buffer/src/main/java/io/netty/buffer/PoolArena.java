@@ -83,6 +83,7 @@ abstract class PoolArena<T> extends SizeClasses implements PoolArenaMetric {
             smallSubpagePools[i] = newSubpagePoolHead();
         }
 
+        //这里创建对应的chunk，在下面并设置对应的前一个节点和后一个节点，和Chunk Range
         q100 = new PoolChunkList<T>(this, null, 100, Integer.MAX_VALUE, chunkSize);
         q075 = new PoolChunkList<T>(this, q100, 75, 100, chunkSize);
         q050 = new PoolChunkList<T>(this, q075, 50, 100, chunkSize);
@@ -124,14 +125,15 @@ abstract class PoolArena<T> extends SizeClasses implements PoolArenaMetric {
     PooledByteBuf<T> allocate(PoolThreadCache cache, int reqCapacity, int maxCapacity) {
         //这里的newByteBuf其实是重用
         PooledByteBuf<T> buf = newByteBuf(maxCapacity);
-        //重用内存
+        //在线程私有的PoolThreadCache中分配一块内存，再对buf里面的内存地址之类的值进行初始化，
         allocate(cache, buf, reqCapacity);
         return buf;
     }
 
     private void allocate(PoolThreadCache cache, PooledByteBuf<T> buf, final int reqCapacity) {
+        //根据需要的容量计算出对应的size
         final int sizeIdx = size2SizeIdx(reqCapacity);
-
+        //这里判断不同规格大小，从其对应的缓存中获取内存，如果所有规格都不满足，那么就直接调用allocateHuge进行真实内存的分配。
         if (sizeIdx <= smallMaxSizeIdx) {
             tcacheAllocateSmall(cache, buf, reqCapacity, sizeIdx);
         } else if (sizeIdx < nSizes) {
@@ -146,7 +148,7 @@ abstract class PoolArena<T> extends SizeClasses implements PoolArenaMetric {
 
     private void tcacheAllocateSmall(PoolThreadCache cache, PooledByteBuf<T> buf, final int reqCapacity,
                                      final int sizeIdx) {
-
+        //首先在缓存中分配
         if (cache.allocateSmall(this, buf, reqCapacity, sizeIdx)) {
             // was able to allocate out of the cache so move on
             return;
@@ -156,6 +158,7 @@ abstract class PoolArena<T> extends SizeClasses implements PoolArenaMetric {
          * Synchronize on the head. This is needed as {@link PoolChunk#allocateSubpage(int)} and
          * {@link PoolChunk#free(long)} may modify the doubly linked list as well.
          */
+        //缓存中分配不称重，做实际的内存分配
         final PoolSubpage<T> head = smallSubpagePools[sizeIdx];
         final boolean needsNormalAllocation;
         synchronized (head) {
@@ -192,6 +195,10 @@ abstract class PoolArena<T> extends SizeClasses implements PoolArenaMetric {
 
     // Method must be called inside synchronized(this) { ... } block
     private void allocateNormal(PooledByteBuf<T> buf, int reqCapacity, int sizeIdx, PoolThreadCache threadCache) {
+       //Netty内存分配的单位是CHunk，一个Chunk的大小是16Mb，每个Chunk都通过双向链表形式保存在ChunkList中
+        //在ChunkList中，根据Chunk的使用率划分ChunkList，在ChunkList中选择一个CHunk进行内存分配。
+
+        //尝试在原有的Chunk上进行内存分配
         if (q050.allocate(buf, reqCapacity, sizeIdx, threadCache) ||
             q025.allocate(buf, reqCapacity, sizeIdx, threadCache) ||
             q000.allocate(buf, reqCapacity, sizeIdx, threadCache) ||
@@ -201,6 +208,7 @@ abstract class PoolArena<T> extends SizeClasses implements PoolArenaMetric {
         }
 
         // Add a new chunk.
+        //如果是首次分配，那就创建CHunk进行内存分配
         PoolChunk<T> c = newChunk(pageSize, nPSizes, pageShifts, chunkSize);
         boolean success = c.allocate(buf, reqCapacity, sizeIdx, threadCache);
         assert success;
@@ -661,11 +669,11 @@ abstract class PoolArena<T> extends SizeClasses implements PoolArenaMetric {
 
         @Override
         protected PooledByteBuf<ByteBuffer> newByteBuf(int maxCapacity) {
-            //判断是否开启和使用JDK内置的Unsafe
+            //判断是否支持Unsafe
             if (HAS_UNSAFE) {
+                //分配
                 return PooledUnsafeDirectByteBuf.newInstance(maxCapacity);
             } else {
-                //进这里
                 return PooledDirectByteBuf.newInstance(maxCapacity);
             }
         }

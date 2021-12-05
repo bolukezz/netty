@@ -133,12 +133,14 @@ public class FastThreadLocal<V> {
      */
     @SuppressWarnings("unchecked")
     public final V get() {
+        //从threadLocal中获取map
         InternalThreadLocalMap threadLocalMap = InternalThreadLocalMap.get();
         Object v = threadLocalMap.indexedVariable(index);
+        //判断如果存在没使用的区域，那么直接返回即可
         if (v != InternalThreadLocalMap.UNSET) {
             return (V) v;
         }
-
+        //这里如果没有可用区域，那么会初始化一个
         return initialize(threadLocalMap);
     }
 
@@ -174,11 +176,12 @@ public class FastThreadLocal<V> {
     private V initialize(InternalThreadLocalMap threadLocalMap) {
         V v = null;
         try {
+            //获取一个区域
             v = initialValue();
         } catch (Exception e) {
             PlatformDependent.throwException(e);
         }
-
+       //然后保存到map中可以复用
         threadLocalMap.setIndexedVariable(index, v);
         addToVariablesToRemove(threadLocalMap, this);
         return v;

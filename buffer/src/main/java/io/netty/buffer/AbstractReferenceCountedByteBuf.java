@@ -97,6 +97,7 @@ public abstract class AbstractReferenceCountedByteBuf extends AbstractByteBuf {
 
     @Override
     public boolean release() {
+        //内存释放
         return handleRelease(updater.release(this));
     }
 

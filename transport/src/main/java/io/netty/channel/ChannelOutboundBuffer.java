@@ -138,6 +138,7 @@ public final class ChannelOutboundBuffer {
         // where added in the meantime.
         //
         // See https://github.com/netty/netty/issues/2577
+        //首先声明一个Entry指向的unflushEntry，也即是第一个未被flush的entry
         Entry entry = unflushedEntry;
         if (entry != null) {
             if (flushedEntry == null) {

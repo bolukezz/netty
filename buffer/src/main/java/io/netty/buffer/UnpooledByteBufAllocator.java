@@ -79,6 +79,7 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
 
     @Override
     protected ByteBuf newHeapBuffer(int initialCapacity, int maxCapacity) {
+        //这里也是根据操作系统是否支持来创建对应的buf
         return PlatformDependent.hasUnsafe() ?
                 new InstrumentedUnpooledUnsafeHeapByteBuf(this, initialCapacity, maxCapacity) :
                 new InstrumentedUnpooledHeapByteBuf(this, initialCapacity, maxCapacity);
@@ -87,6 +88,7 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
     @Override
     protected ByteBuf newDirectBuffer(int initialCapacity, int maxCapacity) {
         final ByteBuf buf;
+        //这里判断操作系统底层是否支持Unsafe，如果支持就采用Unsafe读写，否则就采用非Unsafe
         if (PlatformDependent.hasUnsafe()) {
             buf = noCleaner ? new InstrumentedUnpooledUnsafeNoCleanerDirectByteBuf(this, initialCapacity, maxCapacity) :
                     new InstrumentedUnpooledUnsafeDirectByteBuf(this, initialCapacity, maxCapacity);
@@ -136,6 +138,7 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
 
     private static final class InstrumentedUnpooledUnsafeHeapByteBuf extends UnpooledUnsafeHeapByteBuf {
         InstrumentedUnpooledUnsafeHeapByteBuf(UnpooledByteBufAllocator alloc, int initialCapacity, int maxCapacity) {
+            //调用父类的构造方法
             super(alloc, initialCapacity, maxCapacity);
         }
 

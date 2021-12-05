@@ -31,6 +31,7 @@ public class UnpooledUnsafeHeapByteBuf extends UnpooledHeapByteBuf {
      * @param maxCapacity the max capacity of the underlying byte array
      */
     public UnpooledUnsafeHeapByteBuf(ByteBufAllocator alloc, int initialCapacity, int maxCapacity) {
+        //调用父类实现
         super(alloc, initialCapacity, maxCapacity);
     }
 
@@ -42,11 +43,13 @@ public class UnpooledUnsafeHeapByteBuf extends UnpooledHeapByteBuf {
     @Override
     public byte getByte(int index) {
         checkIndex(index);
+        //调用_getByte
         return _getByte(index);
     }
 
     @Override
     protected byte _getByte(int index) {
+        //调用UnsafeByteBufUtil.getByte，这里是直接操作的内存地址的偏移量
         return UnsafeByteBufUtil.getByte(array, index);
     }
 

@@ -104,6 +104,7 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
 
     @Override
     public ByteBuf buffer() {
+        //判断是否默认支持directBuffer，如果支持则分配directBuffer，否则分配heapBuffer
         if (directByDefault) {
             return directBuffer();
         }
@@ -152,6 +153,7 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
 
     @Override
     public ByteBuf heapBuffer() {
+        //调用重载
         return heapBuffer(DEFAULT_INITIAL_CAPACITY, DEFAULT_MAX_CAPACITY);
     }
 
@@ -166,11 +168,13 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
             return emptyBuf;
         }
         validate(initialCapacity, maxCapacity);
+        //调用newHeapBuffer,是个抽象，会调用到PooledByteBufAllocator和UnPooledByteBUfAllocator的实现
         return newHeapBuffer(initialCapacity, maxCapacity);
     }
 
     @Override
     public ByteBuf directBuffer() {
+        //重载
         return directBuffer(DEFAULT_INITIAL_CAPACITY, DEFAULT_MAX_CAPACITY);
     }
 
@@ -185,6 +189,7 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
             return emptyBuf;
         }
         validate(initialCapacity, maxCapacity);
+        //调用newDirectBuffer
         return newDirectBuffer(initialCapacity, maxCapacity);
     }
 

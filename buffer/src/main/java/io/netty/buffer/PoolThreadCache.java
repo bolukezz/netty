@@ -111,9 +111,12 @@ final class PoolThreadCache {
             int cacheSize, int numCaches) {
         if (cacheSize > 0 && numCaches > 0) {
             @SuppressWarnings("unchecked")
+                    //创建一个缓存数组，这个缓存数组的长度是numCaches，缓存数组的每一个元素都是MemoryRegionCache
+                    //代表一个缓存对象，每个MemoryRegionCache对象中维护了一个队列，
             MemoryRegionCache<T>[] cache = new MemoryRegionCache[numCaches];
             for (int i = 0; i < cache.length; i++) {
                 // TODO: maybe use cacheSize / cache.length
+                //队列的大小根据cacheSize来决定的
                 cache[i] = new SubPageMemoryRegionCache<T>(cacheSize);
             }
             return cache;

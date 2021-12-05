@@ -56,7 +56,9 @@ public class UnpooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
         }
 
         this.alloc = checkNotNull(alloc, "alloc");
+        //这里把默认分配的数组赋值给全局变量initialArray
         setArray(allocateArray(initialCapacity));
+        //初始化读写指针
         setIndex(0, 0);
     }
 
@@ -325,11 +327,13 @@ public class UnpooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
     @Override
     public byte getByte(int index) {
         ensureAccessible();
+        //调用_getByte
         return _getByte(index);
     }
 
     @Override
     protected byte _getByte(int index) {
+        //调用HeapByteBufUtil.getByte,这里其实也就是根据index直接从数组中取值
         return HeapByteBufUtil.getByte(array, index);
     }
 

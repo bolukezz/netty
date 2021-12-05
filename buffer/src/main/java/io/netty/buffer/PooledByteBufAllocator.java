@@ -114,6 +114,7 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
                                 PlatformDependent.maxDirectMemory() / defaultChunkSize / 2 / 3)));
 
         // cache sizes
+        //赋值cache的大小，预创建了固定规格的内存池，大大提高了内存分配性能
         DEFAULT_SMALL_CACHE_SIZE = SystemPropertyUtil.getInt("io.netty.allocator.smallCacheSize", 256);
         DEFAULT_NORMAL_CACHE_SIZE = SystemPropertyUtil.getInt("io.netty.allocator.normalCacheSize", 64);
 
@@ -260,6 +261,18 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
              useCacheForAllThreads, directMemoryCacheAlignment);
     }
 
+    /**
+     * 在PooledByteBufAllocator维护三种规格大小的缓存队列，分别是tinyCacheSize，smallCacheSize，mormalCacheSize
+     * @param preferDirect
+     * @param nHeapArena
+     * @param nDirectArena
+     * @param pageSize
+     * @param maxOrder
+     * @param smallCacheSize
+     * @param normalCacheSize
+     * @param useCacheForAllThreads
+     * @param directMemoryCacheAlignment
+     */
     public PooledByteBufAllocator(boolean preferDirect, int nHeapArena, int nDirectArena, int pageSize, int maxOrder,
                                   int smallCacheSize, int normalCacheSize,
                                   boolean useCacheForAllThreads, int directMemoryCacheAlignment) {
@@ -296,6 +309,8 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
         int pageShifts = validateAndCalculatePageShifts(pageSize, directMemoryCacheAlignment);
 
         if (nHeapArena > 0) {
+            //跟进newArenaArray这个方法其实就是创建了一个固定大小的PoolAren数组，数组大小根据传入的参数nHeapArena和nDirectArena决定，他俩的默认值是CPU的核数乘以2
+            //这样主要目的就是保证Netty中的每一个任务线程都可以有一个独享的Arena，保证在每个线程分配内存的时候不用加锁
             heapArenas = newArenaArray(nHeapArena);
             List<PoolArenaMetric> metrics = new ArrayList<PoolArenaMetric>(heapArenas.length);
             for (int i = 0; i < heapArenas.length; i ++) {
@@ -377,6 +392,7 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
         if (heapArena != null) {
             buf = heapArena.allocate(cache, initialCapacity, maxCapacity);
         } else {
+            //这里判断操作系统底层是否支持Unsafe，如果支持就采用Unsafe读写，否则就采用非Unsafe
             buf = PlatformDependent.hasUnsafe() ?
                     new UnpooledUnsafeHeapByteBuf(this, initialCapacity, maxCapacity) :
                     new UnpooledHeapByteBuf(this, initialCapacity, maxCapacity);
@@ -385,17 +401,38 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
         return toLeakAwareBuffer(buf);
     }
 
+    /**
+     * netty设置了四种规格大小：tiny指0~512Byte大小，small指512～8KB的规格，normal指8KB～16MB大小，huge指的是16MB以上的
+     * 为什么netty会选择这些值作为分界点，其实在Netty底层还有一个内存单位的封装，为了更高效的管理内存，避免内存浪费，把每一个区间
+     * 的规格又做了细分，默认情况下，Netty把内存规格划分为四个部分，Netty中所有的内存申请是以Chunk为单位向系统申请的，每个CHunk
+     * 大小为16MB，后续所有的内存分配都是在这个Chunk里的操作，一个Chunk会以Page为单位进行切分，8KB对应的是一个Page，而一个Chunk
+     * 被划分为2048个Page，小于8KB的是SubPage，例如，我们申请的一段内存空间只有1KB，却给我们分配了一个Page，那么另外7KB就浪费了，
+     * 所以就把Page继续划分
+     *
+     * 在下面我们知道directArena的分配的大概流程，先命中缓存，如果命中不到，则去分配一款连续内存。
+     * PoolThreadCache中维护了3个缓存数组
+     *     private final MemoryRegionCache<ByteBuffer>[] smallSubPageDirectCaches;
+     *     private final MemoryRegionCache<ByteBuffer>[] normalDirectCaches;
+     *     这个版本好像去掉了tinySubPageDirectCaches
+     * @param initialCapacity
+     * @param maxCapacity
+     * @return
+     */
     @Override
     protected ByteBuf newDirectBuffer(int initialCapacity, int maxCapacity) {
-        //这里从cache中获取内存区域PoolArena
+        //优先从对象池里面获得PooledByteBuf进行复用
+        //然后在缓存中进行内存分配
+        //最后考虑从内存堆里面进行分配。
+        //这里从cache中获取内存区域PoolArena,这里每个缓存都会哦于一个
         PoolThreadCache cache = threadCache.get();
         PoolArena<ByteBuffer> directArena = cache.directArena;
 
         final ByteBuf buf;
         if (directArena != null) {
-            //调用它的allocate()方法进行内存分配
+            //从缓存中进行分配
             buf = directArena.allocate(cache, initialCapacity, maxCapacity);
         } else {
+           //根据是否支持Unsafe来选择创建
             buf = PlatformDependent.hasUnsafe() ?
                     UnsafeByteBufUtil.newUnsafeDirectByteBuf(this, initialCapacity, maxCapacity) :
                     new UnpooledDirectByteBuf(this, initialCapacity, maxCapacity);
@@ -508,11 +545,15 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
 
         @Override
         protected synchronized PoolThreadCache initialValue() {
+            //我们发现都是从heapArenas和directArenas中获取的，那么他俩是在哪里进行初始化的。其实是在PooledByteBufAllocator的构造方法中进行初始化的。
+            //从heapArenas中获得一个使用率最少的Arena
             final PoolArena<byte[]> heapArena = leastUsedArena(heapArenas);
+            //从DirectArenas中获取一个使用最少的Arena
             final PoolArena<ByteBuffer> directArena = leastUsedArena(directArenas);
 
             final Thread current = Thread.currentThread();
             if (useCacheForAllThreads || current instanceof FastThreadLocalThread) {
+                //这里会把heapArena，directArena都在PoolThreadCache构造方法中进行初始化
                 final PoolThreadCache cache = new PoolThreadCache(
                         heapArena, directArena, smallCacheSize, normalCacheSize,
                         DEFAULT_MAX_CACHED_BUFFER_CAPACITY, DEFAULT_CACHE_TRIM_INTERVAL);

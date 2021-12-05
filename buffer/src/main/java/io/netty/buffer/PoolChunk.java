@@ -295,6 +295,7 @@ final class PoolChunk<T> implements PoolChunkMetric {
 
     boolean allocate(PooledByteBuf<T> buf, int reqCapacity, int sizeIdx, PoolThreadCache cache) {
         final long handle;
+        //根据size判断通过哪种方式分配。
         if (sizeIdx <= arena.smallMaxSizeIdx) {
             // small
             handle = allocateSubpage(sizeIdx);

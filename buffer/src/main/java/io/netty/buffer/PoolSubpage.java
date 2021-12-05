@@ -24,14 +24,14 @@ import static io.netty.buffer.SizeClasses.LOG2_QUANTUM;
 
 final class PoolSubpage<T> implements PoolSubpageMetric {
 
-    final PoolChunk<T> chunk;
+    final PoolChunk<T> chunk; //记录子页是属于哪个Chunk
     private final int pageShifts;
     private final int runOffset;
     private final int runSize;
-    private final long[] bitmap;
+    private final long[] bitmap; //用于记录子页的内存分配情况
 
-    PoolSubpage<T> prev;
-    PoolSubpage<T> next;
+    PoolSubpage<T> prev; //前一个节点
+    PoolSubpage<T> next; //下一个节点
 
     boolean doNotDestroy;
     int elemSize;

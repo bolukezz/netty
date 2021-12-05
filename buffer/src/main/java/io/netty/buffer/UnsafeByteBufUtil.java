@@ -628,6 +628,7 @@ final class UnsafeByteBufUtil {
 
     static UnpooledUnsafeDirectByteBuf newUnsafeDirectByteBuf(
             ByteBufAllocator alloc, int initialCapacity, int maxCapacity) {
+        //这个是判断是否需要清理,跟进去发现其实是通过java底层来分配一个缓冲区,通过ByteBuffer.allocateDirect
         if (PlatformDependent.useDirectBufferNoCleaner()) {
             return new UnpooledUnsafeNoCleanerDirectByteBuf(alloc, initialCapacity, maxCapacity);
         }
